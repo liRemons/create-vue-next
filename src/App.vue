@@ -1,12 +1,22 @@
 <template>
   <div>
-    <el-button></el-button>
+    <el-input v-model="$store.state.count"></el-input>
+    <el-button @click="handleClick">+</el-button>
   </div>
 </template>
 
 <script>
-import { ElButton } from "element-plus";
+import { useStore } from 'vuex'
 export default {
-  components: { ElButton },
+  setup() {
+    const store = useStore();
+    const handleClick = () => {
+      store.commit('increment');
+    }
+
+    return {
+      handleClick
+    }
+  }
 };
 </script>
