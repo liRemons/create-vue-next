@@ -1,18 +1,24 @@
-const { Configuration } = require("webpack");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
-const { CleanWebpackPlugin } = require("clean-webpack-plugin");
-const UglifyJsPlugin = require("uglifyjs-webpack-plugin");
+const { Configuration, DefinePlugin, ProgressPlugin } = require('webpack')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const CompressionPlugin = require('compression-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const { VueLoaderPlugin } = require("vue-loader");
-const path = require("path");
-const rules = require("./config/rules");
+const path = require('path')
+const rules = require('./config/rules')
+const packageJSON = require('./package.json')
 /**
  * @type {Configuration}
  */
 
-module.exports = (env) => {
-  const { mode } = env;
+module.exports = (env, args) => {
+  const mode = args.mode
+  const otherParams = {}
+  ;(env.otherParams || '').split(',').forEach((item) => {
+    otherParams[item.split('=')[0]] = item.split('=')[1]
+  })
   const config = {
     entry: path.resolve(__dirname, "src/main.js"),
     mode,
@@ -22,47 +28,98 @@ module.exports = (env) => {
       clean: true,
       path: path.resolve(__dirname, "dist"),
     },
+    optimization: {
+      minimize: true,
+      minimizer: [
+        new TerserPlugin({
+          minify: (file, sourceMap) => {
+            const uglifyJsOptions = {
+              sourceMap: false,
+            }
+            return require('uglify-js').minify(file, uglifyJsOptions)
+          },
+        }),
+      ],
+      splitChunks: {
+        chunks: 'async',
+        minSize: 20000,
+        minRemainingSize: 0,
+        minChunks: 1,
+        maxAsyncRequests: 30,
+        maxInitialRequests: 30,
+        enforceSizeThreshold: 50000,
+        cacheGroups: {
+          defaultVendors: {
+            test: /[\\/]node_modules[\\/]/,
+            priority: -10,
+            reuseExistingChunk: true,
+          },
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    },
     module: {
       rules,
     },
     resolve: {
       extensions: [".js", ".vue"],
-      alias: {
-        "@": path.resolve(__dirname, "src"),
-      },
+      alias: {},
     },
     externals: {
       vue: "Vue",
       "element-plus": "ElementPlus",
+      vuex: "Vuex",
     },
     plugins: [
       new VueLoaderPlugin(),
       new HtmlWebpackPlugin({
-        filename: "index.html",
-        template: path.resolve(__dirname, "src/index.html"),
+        filename: 'index.html',
+        template: path.resolve(__dirname, 'src/index.html'),
+      }),
+      new ProgressPlugin({
+        activeModules: true,
+        modules: true,
       }),
       // 提取单独的CSS
       new MiniCssExtractPlugin({
-        filename: "[name]/main.[contenthash:10].css",
+        filename: '[name]/main.[contenthash:10].css',
+      }),
+      new DefinePlugin({
+        APP_NAME: JSON.stringify(`@${packageJSON.name}`),
       }),
       // 压缩css
       new CssMinimizerPlugin(),
-      new CleanWebpackPlugin(),
-     
-      // new BundleAnalyzerPlugin({
-      //   analyzerMode: mode === 'production' ? 'server' : 'disabled'
-      // })
-    ],
+      new BundleAnalyzerPlugin({
+        defaultSizes: 'stat',
+        analyzerMode:
+          mode === 'production' && otherParams.report === 'true'
+            ? 'server'
+            : 'disabled',
+      }),
+      mode === 'production' && otherParams.gzip === 'true'
+        ? new CompressionPlugin()
+        : null,
+    ].filter((_) => !!_),
     devServer: {
-      // contentBase: path.join(__dirname, "dist"),
+      static: {
+        directory: path.resolve(__dirname, 'dist'),
+      },
       compress: true,
       port: 3033,
-      host: "127.0.0.1",
+      host: 'local-ip',
       open: true,
       hot: true,
+      client: {
+        progress: true,
+      },
+      historyApiFallback: true
     },
-    devtool: mode === "development" ? "eval-source-map" : "eval",
-  };
-
-  return config;
-};
+    stats: 'errors-only',
+    devtool: mode === 'development' ? 'eval-source-map' : false,
+  }
+  return config
+}

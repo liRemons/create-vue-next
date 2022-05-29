@@ -1,12 +1,12 @@
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const path = require("path");
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const path = require('path');
 // test: the applied rule.
 // exclude: ignore processed files.
 // use: multiple loaders can be used to run from bottom to top.
 
 // Handle compatibility
 const postcssLoader = {
-  loader: "postcss-loader",
+  loader: 'postcss-loader',
   // options: {
   // postcssOptions: {
   // plugins: [["postcss-preset-env", {}]]
@@ -14,38 +14,63 @@ const postcssLoader = {
   // },
 };
 
+const cssMoudleLoader = {
+  loader: 'css-loader',
+  options: {
+    sourceMap: false,
+    modules: {
+      localIdentName: '[path][name]-[local]-[hash:base64:10]',
+    },
+  },
+};
+
 const rules = [
   // css
   {
     test: /\.css$/,
-    include: path.resolve(__dirname, "../src"),
+    include: path.resolve(__dirname, '../src'),
     // MiniCssExtractPlugin.loader plug-in extracts css as a separate file.
     // Unlike style-loader, style-loader inserts css into the style tag.
-    use: [MiniCssExtractPlugin.loader, "css-loader", postcssLoader],
+    use: [MiniCssExtractPlugin.loader, 'css-loader', postcssLoader],
   },
   // less
   {
-    test: /\.less$/,
-    include: path.resolve(__dirname, "../src"),
+    test: new RegExp(`^(?!.*\\.global).*\\.less`),
+    include: path.resolve(__dirname, '../src'),
+    include: path.resolve(__dirname, '../src'),
     use: [
       MiniCssExtractPlugin.loader,
-      "css-loader",
+      cssMoudleLoader,
       postcssLoader,
-      "less-loader",
+      'less-loader',
     ],
+  },
+  {
+    test: new RegExp(`^(.*\\.global).*\\.less`),
+    include: path.resolve(__dirname, '../src'),
+    use: [
+      MiniCssExtractPlugin.loader,
+      'css-loader',
+      postcssLoader,
+      'less-loader',
+    ],
+  },
+  {
+    test: /\.vue$/,
+    use: ['vue-loader'],
   },
   // Process images.
   {
     test: /\.(jpg|png|jpeg|gif)$/,
-    exclude: /node_modules/,
+    include: path.resolve(__dirname, '../src'),
     use: [
       {
-        loader: "url-loader",
+        loader: 'url-loader',
         options: {
           limit: 1024 * 8,
-          name: "[name].[ext]",
+          name: '[name].[ext]',
           esModule: false,
-          outputPath: "static/assets/images",
+          outputPath: 'static/assets/images',
         },
       },
     ],
@@ -53,36 +78,19 @@ const rules = [
   // Static resources in HTML
   {
     test: /\.html$ /,
-    exclude: /node_modules/,
-    loader: "html-loader",
+    include: path.resolve(__dirname, '../src'),
+    loader: 'html-loader',
     options: {
       esModule: false,
     },
   },
   {
-    test: /\.vue$/,
-    use: {
-      loader: "vue-loader",
-    },
-  },
-  {
-    test: /\.js$/,
-    include: path.resolve(__dirname, "../src"),
-    use: {
-      loader: "babel-loader",
-      options: {
-        presets: ["@babel/preset-env"],
-      },
-    },
-  },
-  // Other resources
-  {
-    test: /.(pdf|doc|node)$/,
+    test: /\.(pdf|doc|node|svg)$/,
     use: [
       {
-        loader: "file-loader",
+        loader: 'file-loader',
         options: {
-          publicPath: "static/assets/others",
+          publicPath: 'static/assets/others',
         },
       },
     ],
